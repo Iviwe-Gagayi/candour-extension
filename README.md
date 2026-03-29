@@ -1,33 +1,39 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+**Build the Extension**
+Ensure you have your environment variables set up in .env.local (see below), then run:
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-pnpm dev
-# or
-npm run dev
-```
-
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
-
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
-
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
-
-## Making production build
-
-Run the following:
-
-```bash
-pnpm build
-# or
+npm install
 npm run build
-```
 
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
+This generates a production-ready folder at build/chrome-mv3-prod.
 
-## Submit to the webstores
+**Load into Chrome**
+Open Chrome and navigate to chrome://extensions/.
 
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+Toggle Developer mode (top right) to ON.
+
+Click Load unpacked.
+
+Select the build/chrome-mv3-prod folder from this directory.
+
+**Usage**
+Google Meet: Join a call. A draggable widget will appear. Use the checkboxes to toggle live facial analysis for yourself and other participants.
+
+🛠 Features
+Two-Way Facial Analysis: Simultaneously tracks your emotions and the person you're speaking with using dual Hume AI WebSockets.
+
+Security Bypass: Implements a stealth frame-capture system using OffscreenCanvas to bypass Google Meet's Trusted Types security policy.
+
+Privacy-First: All processing happens in-memory via temporary canvases. No video or text is ever stored or recorded.
+
+**Tech Stack**
+Framework: Plasmo (The "Next.js" of Browser Extensions)
+
+UI: React + Tailwind CSS
+
+AI: Hume AI (Facial Expressions) & Claude 3 (Tone Analysis)
+
+Language: TypeScript
+
+**Environment Variables**
+To run this, you need a .env.local file in the root directory with the following:
+PLASMO_PUBLIC_HUME_API_KEY=your_hume_key_here
