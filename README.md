@@ -18,7 +18,7 @@ Select the build/chrome-mv3-prod folder from this directory.
 **Usage**
 Google Meet: Join a call. A draggable widget will appear. Use the checkboxes to toggle live facial analysis for yourself and other participants.
 
-🛠 Features
+**Features**
 Two-Way Facial Analysis: Simultaneously tracks your emotions and the person you're speaking with using dual Hume AI WebSockets.
 
 Security Bypass: Implements a stealth frame-capture system using OffscreenCanvas to bypass Google Meet's Trusted Types security policy.
