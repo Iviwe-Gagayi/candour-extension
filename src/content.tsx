@@ -59,21 +59,19 @@ export default function CandourCopilotOverlay() {
     }
   }
 
-  const onMouseMove = (e: MouseEvent) => {
-    if (!dragging.current) return
-
-    setPosition({
-      x: e.clientX - offset.current.x,
-      y: e.clientY - offset.current.y
-    })
-  }
-
-  const onMouseUp = () => {
-    dragging.current = false
-  }
-
-  // Attach drag listeners
   useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging.current) return
+      setPosition({
+        x: e.clientX - offset.current.x,
+        y: e.clientY - offset.current.y
+      })
+    }
+
+    const onMouseUp = () => {
+      dragging.current = false
+    }
+
     window.addEventListener("mousemove", onMouseMove)
     window.addEventListener("mouseup", onMouseUp)
 
@@ -81,7 +79,7 @@ export default function CandourCopilotOverlay() {
       window.removeEventListener("mousemove", onMouseMove)
       window.removeEventListener("mouseup", onMouseUp)
     }
-  }, [])
+  }, [position])
 
   // Frame processor
   const processFrame = async (
@@ -125,9 +123,13 @@ export default function CandourCopilotOverlay() {
       if (document.hidden) return
       if (!myCtx || !theirCtx) return
 
-      const allVideos = document.querySelectorAll("video")
-      const activeVideos = Array.from(allVideos).filter(
-        (v) => v.readyState === 4 && v.videoWidth > 0
+      const allVideos = Array.from(document.querySelectorAll("video"))
+
+      const activeVideos = allVideos.filter(
+        (v) =>
+          v.readyState === 4 &&
+          v.videoWidth > 100 &&
+          v.videoHeight > 100
       )
 
       if (activeVideos.length === 0) return
@@ -135,28 +137,30 @@ export default function CandourCopilotOverlay() {
       let myVideo = activeVideos.find((v) =>
         v.style.transform.includes("scaleX(-1)")
       )
-      if (!myVideo) myVideo = activeVideos[activeVideos.length - 1]
 
-      const theirVideo =
-        activeVideos.find((v) => v !== myVideo) || activeVideos[0]
+      if (!myVideo) {
+        myVideo = activeVideos[activeVideos.length - 1]
+      }
 
-      if (
-        trackMeRef.current &&
-        myWS.current?.readyState === WebSocket.OPEN &&
-        myVideo
-      ) {
+      const otherVideos = activeVideos.filter((v) => v !== myVideo)
+      let theirVideo: HTMLVideoElement | undefined = undefined
+
+      if (otherVideos.length > 0) {
+        theirVideo = otherVideos.reduce((largest, current) => {
+          const largestArea = largest.videoWidth * largest.videoHeight
+          const currentArea = current.videoWidth * current.videoHeight
+          return currentArea > largestArea ? current : largest
+        })
+      }
+
+      if (trackMeRef.current && myWS.current?.readyState === WebSocket.OPEN && myVideo) {
         processFrame(myVideo, myCanvas, myCtx, myWS.current)
       }
 
-      if (
-        trackThemRef.current &&
-        theirWS.current?.readyState === WebSocket.OPEN &&
-        theirVideo &&
-        theirVideo !== myVideo
-      ) {
+      if (trackThemRef.current && theirWS.current?.readyState === WebSocket.OPEN && theirVideo && theirVideo !== myVideo) {
         processFrame(theirVideo, theirCanvas, theirCtx, theirWS.current)
       }
-    }, 2000)
+    }, 1000) // 1 second interval for snappier updates
   }
 
   // WebSocket setup
@@ -166,50 +170,36 @@ export default function CandourCopilotOverlay() {
       return
     }
 
-    myWS.current = new WebSocket(
-      `wss://api.hume.ai/v0/stream/models?apiKey=${apiKey}`
-    )
+    myWS.current = new WebSocket(`wss://api.hume.ai/v0/stream/models?apiKey=${apiKey}`)
     myWS.current.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
         const models = data.models || data
         const emotions = models?.face?.predictions?.[0]?.emotions
-
         if (emotions) {
-          const top = emotions.sort((a, b) => b.score - a.score)[0]
+          const top = emotions.sort((a: any, b: any) => b.score - a.score)[0]
           setMyInsight(`${top.name} (${Math.round(top.score * 100)}%)`)
         }
-      } catch (err) {
-        console.error("Error parsing MY stream:", err)
-      }
+      } catch (err) { console.error("Error parsing MY stream:", err) }
     }
 
-    theirWS.current = new WebSocket(
-      `wss://api.hume.ai/v0/stream/models?apiKey=${apiKey}`
-    )
+    theirWS.current = new WebSocket(`wss://api.hume.ai/v0/stream/models?apiKey=${apiKey}`)
     theirWS.current.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
         const models = data.models || data
         const emotions = models?.face?.predictions?.[0]?.emotions
-
         if (emotions) {
-          const top = emotions.sort((a, b) => b.score - a.score)[0]
+          const top = emotions.sort((a: any, b: any) => b.score - a.score)[0]
           setTheirInsight(`${top.name} (${Math.round(top.score * 100)}%)`)
         }
-      } catch (err) {
-        console.error("Error parsing THEIR stream:", err)
-      }
+      } catch (err) { console.error("Error parsing THEIR stream:", err) }
     }
 
     startScraping()
 
     return () => {
-      if (scraperInterval.current) {
-        clearInterval(scraperInterval.current)
-        scraperInterval.current = null
-      }
-
+      if (scraperInterval.current) clearInterval(scraperInterval.current)
       myWS.current?.close()
       theirWS.current?.close()
     }
@@ -221,64 +211,108 @@ export default function CandourCopilotOverlay() {
         position: "fixed",
         top: `${position.y}px`,
         left: `${position.x}px`,
-        zIndex: 999999,
-        background: "rgba(20, 20, 20, 0.85)",
+        zIndex: 2147483647,
+        background: "rgba(20, 20, 20, 0.9)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.1)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
         padding: "20px",
         borderRadius: "16px",
         color: "white",
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: "system-ui, -apple-system, sans-serif",
         width: "300px",
-        boxShadow: "0 10px 40px rgba(0,0,0,0.5)"
+        boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+        userSelect: "none"
       }}
     >
+      {/* Header / Drag Handle */}
       <div
         onMouseDown={onMouseDown}
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "16px",
-          cursor: dragging.current ? "grabbing" : "grab"
+          marginBottom: "20px",
+          cursor: "grab"
         }}
       >
-        <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+        <h2 style={{
+          margin: 0,
+          fontSize: "14px",
+          fontWeight: 800,
+          color: "#fbbf24",
+          textTransform: "uppercase",
+          letterSpacing: "1px"
+        }}>
           Candour Copilot
         </h2>
-        <div
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            background: "#10b981"
-          }}
-        />
+        <div style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          background: "#10b981",
+          boxShadow: "0 0 8px #10b981"
+        }} />
       </div>
 
-      <div style={{ marginBottom: "12px" }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={trackThem}
-            onChange={(e) => setTrackThem(e.target.checked)}
-          />
-          Their Vibe
-        </label>
-        <p>{trackThem ? theirInsight : "Paused"}</p>
-      </div>
+      {/* Their Vibe Card */}
+      <VibeCard
+        label="Their Vibe"
+        insight={theirInsight}
+        active={trackThem}
+        onToggle={() => setTrackThem(!trackThem)}
+        color="#60a5fa"
+      />
 
-      <div>
-        <label>
+      {/* Your Vibe Card */}
+      <VibeCard
+        label="Your Vibe"
+        insight={myInsight}
+        active={trackMe}
+        onToggle={() => setTrackMe(!trackMe)}
+        color="#fbbf24"
+      />
+
+      <div style={{ marginTop: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+        <p style={{ margin: 0, fontSize: "11px", color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
+          Multimodal analysis active. No data is stored.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function VibeCard({ label, insight, active, onToggle, color }: any) {
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.05)",
+      borderRadius: "12px",
+      padding: "14px",
+      marginBottom: "10px",
+      border: "1px solid rgba(255,255,255,0.05)"
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontWeight: 700, textTransform: "uppercase" }}>
+          {label}
+        </span>
+        <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
           <input
             type="checkbox"
-            checked={trackMe}
-            onChange={(e) => setTrackMe(e.target.checked)}
+            checked={active}
+            onChange={onToggle}
+            style={{ marginRight: "6px", accentColor: color }}
           />
-          Your Vibe
+          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>Track</span>
         </label>
-        <p>{trackMe ? myInsight : "Paused"}</p>
       </div>
+      <p style={{
+        margin: 0,
+        fontSize: "15px",
+        fontWeight: 600,
+        color: active ? color : "rgba(255,255,255,0.25)",
+        transition: "color 0.2s"
+      }}>
+        {active ? insight : "Tracking Paused"}
+      </p>
     </div>
   )
 }
